@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>  
+#include <time.h>
 
 
 typedef struct{
@@ -67,21 +68,42 @@ void add_treasure(char *path, char *arg){
 }
 
 
-void print_treasure(char *path, char *arg){
-    char hunt_path[1024];
-    snprintf(hunt_path, sizeof(hunt_path), "%s/%s/treasure_%s.dat", path,arg,arg);
-    int f = fopen(hunt_path, O_RDONLY);
-
+void print_treasure(char* hunt_path){
+    int f = open(hunt_path, O_RDONLY);
     if( f == -1 ){
-        peror("failed to open file\n");
+        perror("failed to open file\n");
         close(f);
         exit(EXIT_FAILURE);
     }
-    
-    while( f != EOF){
-        
-    }
 
+    treasure t;
+    int nr = 1;
+    while( read(f,&t,sizeof(treasure))){
+        printf("Treasure no.%d\n", nr++);
+        printf("ID: %d\n", t.id);
+        printf("Username: %s\n", t.username);
+        printf("GPS Longitude: %f\n", t.longi);
+        printf("GPS Latitude: %f\n", t.lat);
+        printf("Clue: %s\n", t.clue);
+        printf("Value: %d\n\n\n",t.value);
+    }
+}
+
+void list(char* path, char* arg){
+    char hunt_path[1024];
+    snprintf(hunt_path, sizeof(hunt_path), "%s/%s/treasure_%s.dat", path,arg,arg);
+
+    printf("Hunt name:%s\n", arg);
+    struct stat st;
+    if(stat(hunt_path, &st)){
+        perror("stat failed,hunt probably doesn't exist");
+        exit(EXIT_FAILURE);
+    }
+    else{
+        printf("File size: %ld\n", st.st_size);
+        printf("Last modified: %s\n", ctime(&st.st_mtime));
+    }
+    print_treasure(hunt_path);
 }
 /*  Structura Fisierelor
 
@@ -123,7 +145,7 @@ int main(int argc, char **argv){
 
     char cwd_N[1024];
     snprintf(cwd_N, sizeof(cwd_N), "%s%s", cwd, "/Hunts/"); //Concatenam Hunts la cwd 
-    printf("%s\n",cwd_N);
+    // printf("%s\n",cwd_N);
 
 	if( strcmp(argv[1], "--add") == 0){
         char dir_path[1024];
@@ -145,7 +167,7 @@ int main(int argc, char **argv){
 
     
 	else if( strcmp(argv[1], "--list") == 0){
-		printf("list\n");
+		list(cwd_N, argv[2]);
 	}
 	else if( strcmp(argv[1], "--view") == 0){
 		printf("list\n");

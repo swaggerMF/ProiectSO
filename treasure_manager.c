@@ -133,7 +133,80 @@ void view(char *path, char *hunt_id, int treasure_id){
     }
 }
 
-/*  Structura Fisierelor
+int find_treasure(char *hunt_path, int treasure_id){
+    int f = open(hunt_path, O_RDONLY);
+    if( f == -1 ){
+        perror("failed to open file");
+        close(f);
+        exit(EXIT_FAILURE);
+    }
+    int i = 0;
+    treasure t;
+    while( read(f, &t, sizeof(treasure))){
+        if( t.id == treasure_id){
+            close(f);
+            return i;
+        }
+        i++;
+    }
+    close(f);
+    return -1;
+}
+
+void remove_treasure(char* hunt_path, int treasure_id ){
+    int index = find_treasure(hunt_path,treasure_id);
+
+    off_t src_offset = (index + 1) * sizeof(treasure);
+    off_t dst_offset = index * sizeof(treasure);
+
+    int fd = open(hunt_path, O_RDWR);
+    if( fd == -1){
+        perror("file failed to open\n");
+        close(fd);
+        exit(EXIT_FAILURE);
+    }
+    treasure t;
+    while(1){
+        if(lseek(fd, src_offset, SEEK_SET) == -1 ){
+            perror("lseek failed\n");
+            exit(EXIT_FAILURE); 
+        }
+        ssize_t bytes = read(fd, &t, sizeof(treasure));
+        if( bytes == 0 ) break;
+        if( bytes != sizeof(treasure)){
+            perror("read failed\n");
+            exit(EXIT_FAILURE);
+        }
+
+        if( lseek(fd, dst_offset, SEEK_SET) == -1){
+            perror("lseek failed\n");
+            exit(EXIT_FAILURE);
+        }
+
+        if(write(fd, &t, sizeof(treasure)) != sizeof(treasure)){
+            perror("write failed\n");
+            exit(EXIT_FAILURE);
+        }
+        src_offset = src_offset + sizeof(treasure);
+        dst_offset = dst_offset + sizeof(treasure);
+    }
+
+    if( ftruncate(fd, dst_offset) == -1){
+        perror("truncation failed\n");
+        exit(EXIT_FAILURE);
+    }
+
+}
+
+void remove_hunt(char *hunt_path, char* treasure_path){
+
+    if( rmdir(hunt_path) == -1){
+        perror("rmdir failed\n");
+        exit(EXIT_FAILURE);
+    }
+    
+}
+/*  File Structure
 
 Hunts/
 ├── Hunt1/
@@ -197,15 +270,22 @@ int main(int argc, char **argv){
 	else if( strcmp(argv[1], "--list") == 0){
 		list(cwd_N, argv[2]);
 	}
+
 	else if( strcmp(argv[1], "--view") == 0){
         int t_id = atoi(argv[3]);
 		view(cwd_N, argv[2],t_id);
 	}
+
 	else if( strcmp(argv[1], "--remove_treasure") == 0){
-		printf("list\n");
+        char hunt_path[1024];
+        snprintf(hunt_path, sizeof(hunt_path), "%s/%s/treasure_%s.dat",cwd_N, argv[2], argv[2]);
+        int t_id = atoi(argv[3]);
+
+        remove_treasure(hunt_path, t_id);
 	}
+
 	else if( strcmp(argv[1], "--remove_hunt") == 0){
-		printf("list\n");
+		
 	}
 	
 	return 0;

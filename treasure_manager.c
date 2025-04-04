@@ -31,8 +31,9 @@ int main(int argc, char **argv){
 				
 			}
 		}
-		printf("add\n");
-		if( )
+        else{
+            mkdir("")
+        }
 	}
 	else if( strcmp(argv[1], "--list") == 0){
 		printf("list\n");

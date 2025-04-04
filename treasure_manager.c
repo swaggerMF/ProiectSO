@@ -2,27 +2,86 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <sys/types.h>
 #include <unistd.h>
+#include <fcntl.h>
+#include <errno.h>  
 
 
 typedef struct{
 	int id;
 	char username[100];
-	float lat;
 	float longi;
+    float lat;
 	char clue[200];
 	int value;
 }treasure;
 
-treasure add_info(treasure *t, int id, const char *username, float lat, float longi, const char *clue, int value){
+treasure add_info(){
+	treasure t;
+    printf("ID: ");
+    scanf("%d", &t.id);
 	
-	(*t).id = id;
-	strcpy((*t).username, username);
-	(*t).lat = lat;
-	(*t).longi = longi;
-	strcpy((*t).clue,clue);
-	(*t).value = value;
-    return *t;
+    printf("Username: ");
+    scanf("%99s", t.username);
+
+    printf("Longitudine: ");
+    scanf("%f", &t.longi);
+
+    printf("Latitudine: ");
+    scanf("%f", &t.lat);
+
+    printf("Clue: ");
+    getchar();
+    fgets(t.clue, 199,stdin);
+    t.clue[strcspn(t.clue, "\n")] = 0;
+
+    printf("Value: ");
+    // getchar();
+    scanf("%d", &t.value);
+
+    return t;
+}
+
+void add_treasure(char *path, char *arg){
+    char treasure_path[1024];
+    snprintf(treasure_path, sizeof(treasure_path), "%s/treasure_%s.dat", path,arg);
+
+    int f = open(treasure_path, O_WRONLY | O_CREAT | O_APPEND, 0777);
+    if( f == -1){
+        perror("failed to open file");
+        exit(EXIT_FAILURE);
+    }
+
+    treasure trs = add_info();
+
+    if( write(f, &trs, sizeof(trs)) == -1){
+        perror("Unable to add treasure");
+        close(f);
+        exit(EXIT_FAILURE);
+    }
+    else{
+        printf("Treasure added succesfully\n");
+    }
+    close(f);
+}
+
+
+void print_treasure(char *path, char *arg){
+    char hunt_path[1024];
+    snprintf(hunt_path, sizeof(hunt_path), "%s/%s/treasure_%s.dat", path,arg,arg);
+    int f = fopen(hunt_path, O_RDONLY);
+
+    if( f == -1 ){
+        peror("failed to open file\n");
+        close(f);
+        exit(EXIT_FAILURE);
+    }
+    
+    while( f != EOF){
+        
+    }
+
 }
 /*  Structura Fisierelor
 
@@ -54,30 +113,37 @@ int main(int argc, char **argv){
             exit(EXIT_FAILURE);
         }
     }
+
+
     char cwd[1024];
-    if(getcwd(cwd,sizeof(cwd)) == NULL ){
+    if(getcwd(cwd,sizeof(cwd)) == NULL ){ //Obtinem current working directory
         perror("cwd failed");
         exit(EXIT_FAILURE);
     }
+
     char cwd_N[1024];
-    snprintf(cwd_N, sizeof(cwd_N), "%s%s", cwd, "/Hunts/");
+    snprintf(cwd_N, sizeof(cwd_N), "%s%s", cwd, "/Hunts/"); //Concatenam Hunts la cwd 
     printf("%s\n",cwd_N);
+
 	if( strcmp(argv[1], "--add") == 0){
         char dir_path[1024];
-		snprintf(dir_path, sizeof(dir_path), "%s%s", cwd_N, argv[2]);
+		snprintf(dir_path, sizeof(dir_path), "%s%s", cwd_N, argv[2]); //Concatenam directorul dat ca argument la path
 
-		if( !stat(dir_path, &st) ){
-			if( S_ISDIR(st.st_mode) ){
-				
+		if( !stat(dir_path, &st) ){ //verificam daca exista hunt ul specificat in argument
+			if( S_ISDIR(st.st_mode) ){ //daca exista adaugam date despre treasure
+				add_treasure(dir_path,argv[2]);
 			}
 		}
         else{
-            if( mkdir(dir_path, 0777) == -1){
+            if( mkdir(dir_path, 0777) == -1){ //daca nu exista se creaza un nou director cu numele hunt
                 perror("mkdir failed");
                 exit(EXIT_FAILURE);
             }
+            add_treasure(dir_path,argv[2]);
         }
 	}
+
+    
 	else if( strcmp(argv[1], "--list") == 0){
 		printf("list\n");
 	}

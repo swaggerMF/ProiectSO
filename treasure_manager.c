@@ -45,7 +45,34 @@ treasure add_info(){
     return t;
 }
 
-void add_treasure(char *path, char *arg){
+void log_action(const char *action, char *path) {
+    int log_file = open(path, O_WRONLY | O_APPEND | O_CREAT, 0644);
+    if (log_file == -1) {
+        perror("Unable to open log file");
+        return;
+    }
+
+    time_t raw_time;
+    struct tm *time_info;
+    char time_string[100];
+
+    time(&raw_time);
+    time_info = localtime(&raw_time);
+
+    strftime(time_string, sizeof(time_string), "%Y-%m-%d %H:%M:%S", time_info);
+
+    char log_message[256];
+    snprintf(log_message, sizeof(log_message), "Performed action: '%s' @ %s\n", action, time_string);
+
+    ssize_t bytes_written = write(log_file, log_message, strlen(log_message));
+    if (bytes_written == -1) {
+        perror("Unable to write to log file");
+    }
+
+    close(log_file);
+}
+
+void add_treasure(char *path, char *arg, char* log_path){
     char treasure_path[1024];
     int written = snprintf(treasure_path, sizeof(treasure_path), "%s/treasure_%s.dat", path,arg);
     if (written < 0 || written >= sizeof(treasure_path)) {
@@ -69,6 +96,7 @@ void add_treasure(char *path, char *arg){
     else{
         printf("Treasure added succesfully\n");
     }
+    log_action("Add Treasure",log_path);
     close(f);
 }
 
@@ -94,7 +122,7 @@ void print_treasure(char* treasure_path){
     }
 }
 
-void list(char* path, char* arg){
+void list(char* path, char* arg,char* log_path){
     char treasure_path[1024];
     int written = snprintf(treasure_path, sizeof(treasure_path), "%s/%s/treasure_%s.dat", path,arg,arg);
     if (written < 0 || written >= sizeof(treasure_path)) {
@@ -112,16 +140,22 @@ void list(char* path, char* arg){
         printf("Last modified: %s\n", ctime(&st.st_mtime));
     }
     print_treasure(treasure_path);
+    char msg[100];
+    written = snprintf(msg,sizeof(msg),"List %s",arg);
+    if (written < 0 || written >= sizeof(msg)) {
+            perror("Path too long\n");
+            exit(EXIT_FAILURE);
+    }
+    log_action(msg,log_path);
 }
 
-void view(char *path, char *hunt_id, int treasure_id){
+void view(char *path, char *hunt_id, int treasure_id, char* log_path){
     char hunt_path[1024];
     int written = snprintf(hunt_path, sizeof(hunt_path), "%s/%s/treasure_%s.dat", path,hunt_id,hunt_id);
     if (written < 0 || written >= sizeof(hunt_path)) {
             perror("Path too long\n");
             exit(EXIT_FAILURE);
     }
-
     int f = open(hunt_path, O_RDONLY);
     if( f == -1 ){
         perror("failed to open file\n");
@@ -143,6 +177,13 @@ void view(char *path, char *hunt_id, int treasure_id){
             printf("Value: %d\n\n\n",t.value);
         }
     }
+    char msg[100];
+    written = snprintf(msg,sizeof(msg),"View Treasure %d from %s",treasure_id,hunt_id);
+    if (written < 0 || written >= sizeof(msg)) {
+            perror("Path too long\n");
+            exit(EXIT_FAILURE);
+    }
+    log_action(msg,log_path);
 }
 
 int find_treasure(char *treasure_path, int treasure_id){
@@ -165,7 +206,7 @@ int find_treasure(char *treasure_path, int treasure_id){
     return -1;
 }
 
-void remove_treasure(char* treasure_path, int treasure_id ){
+void remove_treasure(char* treasure_path, int treasure_id, char* hunt,char* log_path){
     int index = find_treasure(treasure_path,treasure_id);
 
     off_t src_offset = (index + 1) * sizeof(treasure);
@@ -207,11 +248,21 @@ void remove_treasure(char* treasure_path, int treasure_id ){
         perror("truncation failed\n");
         exit(EXIT_FAILURE);
     }
-
+    char msg[100];
+    int written = snprintf(msg,sizeof(msg),"Remove Treasure %d from %s",treasure_id,hunt);
+    if (written < 0 || written >= sizeof(msg)) {
+            perror("Path too long\n");
+            exit(EXIT_FAILURE);
+    }
+    log_action(msg,log_path);
 }
 
-void remove_hunt(char *hunt_path, char* treasure_path){
-
+void remove_hunt(char *hunt_path, char* treasure_path, char* log_path){
+    
+    if( unlink(log_path) == -1){
+        perror("unlink failed\n");
+        exit(EXIT_FAILURE);
+    }
     if( unlink(treasure_path) == -1){
         perror("unlink failed\n");
         exit(EXIT_FAILURE);
@@ -268,6 +319,13 @@ int main(int argc, char **argv){
     }   
     // printf("%s\n",cwd_N);
 
+    char log_path[1024];
+    written = snprintf(log_path, sizeof(log_path), "%s/%s/logged_hunt.txt",cwd_N, argv[2] );
+    if (written < 0 || written >= sizeof(log_path)) {
+        perror("Path too long\n");
+        exit(EXIT_FAILURE);
+    }
+
 	if( strcmp(argv[1], "--add") == 0){
         char dir_path[1024];
 		written = snprintf(dir_path, sizeof(dir_path), "%s%s", cwd_N, argv[2]); //Concatenam directorul dat ca argument la path
@@ -278,7 +336,7 @@ int main(int argc, char **argv){
 
 		if( !stat(dir_path, &st) ){ //verificam daca exista hunt ul specificat in argument
 			if( S_ISDIR(st.st_mode) ){ //daca exista adaugam date despre treasure
-				add_treasure(dir_path,argv[2]);
+				add_treasure(dir_path,argv[2],log_path);
 			}
 		}
         else{
@@ -286,18 +344,19 @@ int main(int argc, char **argv){
                 perror("mkdir failed");
                 exit(EXIT_FAILURE);
             }
-            add_treasure(dir_path,argv[2]);
+            add_treasure(dir_path,argv[2],log_path);
         }
 	}
 
     
 	else if( strcmp(argv[1], "--list") == 0){
-		list(cwd_N, argv[2]);
+
+		list(cwd_N, argv[2],log_path);
 	}
 
 	else if( strcmp(argv[1], "--view") == 0){
         int t_id = atoi(argv[3]);
-		view(cwd_N, argv[2],t_id);
+		view(cwd_N, argv[2],t_id,log_path);
 	}
 
 	else if( strcmp(argv[1], "--remove_treasure") == 0){
@@ -309,7 +368,7 @@ int main(int argc, char **argv){
         }
         int t_id = atoi(argv[3]);
 
-        remove_treasure(treasure_path, t_id);
+        remove_treasure(treasure_path, t_id,argv[2],log_path);
 	}
 
 	else if( strcmp(argv[1], "--remove_hunt") == 0){
@@ -326,7 +385,14 @@ int main(int argc, char **argv){
             perror("Path too long\n");
             exit(EXIT_FAILURE);
         }
-		remove_hunt(hunt_path,treasure_path);
+
+        char log_path[1024];
+        written = snprintf(log_path, sizeof(log_path), "%s/%s/logged_hunt.txt",cwd_N, argv[2]);
+        if (written < 0 || written >= sizeof(log_path)) {
+            perror("Path too long\n");
+            exit(EXIT_FAILURE);
+        }
+		remove_hunt(hunt_path,treasure_path,log_path);
 	}
 	
 	return 0;

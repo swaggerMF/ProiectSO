@@ -9,6 +9,7 @@
 #include <time.h>
 
 
+
 typedef struct{
 	int id;
 	char username[100];
@@ -46,7 +47,11 @@ treasure add_info(){
 
 void add_treasure(char *path, char *arg){
     char treasure_path[1024];
-    snprintf(treasure_path, sizeof(treasure_path), "%s/treasure_%s.dat", path,arg);
+    int written = snprintf(treasure_path, sizeof(treasure_path), "%s/treasure_%s.dat", path,arg);
+    if (written < 0 || written >= sizeof(treasure_path)) {
+            perror("Path too long\n");
+            exit(EXIT_FAILURE);
+        }
 
     int f = open(treasure_path, O_WRONLY | O_CREAT | O_APPEND, 0777);
     if( f == -1){
@@ -68,8 +73,8 @@ void add_treasure(char *path, char *arg){
 }
 
 
-void print_treasure(char* hunt_path){
-    int f = open(hunt_path, O_RDONLY);
+void print_treasure(char* treasure_path){
+    int f = open(treasure_path, O_RDONLY);
     if( f == -1 ){
         perror("failed to open file\n");
         close(f);
@@ -90,12 +95,15 @@ void print_treasure(char* hunt_path){
 }
 
 void list(char* path, char* arg){
-    char hunt_path[1024];
-    snprintf(hunt_path, sizeof(hunt_path), "%s/%s/treasure_%s.dat", path,arg,arg);
-
+    char treasure_path[1024];
+    int written = snprintf(treasure_path, sizeof(treasure_path), "%s/%s/treasure_%s.dat", path,arg,arg);
+    if (written < 0 || written >= sizeof(treasure_path)) {
+            perror("Path too long\n");
+            exit(EXIT_FAILURE);
+    }
     printf("Hunt name:%s\n", arg);
     struct stat st;
-    if(stat(hunt_path, &st)){
+    if(stat(treasure_path, &st)){
         perror("stat failed,hunt probably doesn't exist");
         exit(EXIT_FAILURE);
     }
@@ -103,12 +111,16 @@ void list(char* path, char* arg){
         printf("File size: %ld\n", st.st_size);
         printf("Last modified: %s\n", ctime(&st.st_mtime));
     }
-    print_treasure(hunt_path);
+    print_treasure(treasure_path);
 }
 
 void view(char *path, char *hunt_id, int treasure_id){
     char hunt_path[1024];
-    snprintf(hunt_path, sizeof(hunt_path), "%s/%s/treasure_%s.dat", path,hunt_id,hunt_id);
+    int written = snprintf(hunt_path, sizeof(hunt_path), "%s/%s/treasure_%s.dat", path,hunt_id,hunt_id);
+    if (written < 0 || written >= sizeof(hunt_path)) {
+            perror("Path too long\n");
+            exit(EXIT_FAILURE);
+    }
 
     int f = open(hunt_path, O_RDONLY);
     if( f == -1 ){
@@ -133,8 +145,8 @@ void view(char *path, char *hunt_id, int treasure_id){
     }
 }
 
-int find_treasure(char *hunt_path, int treasure_id){
-    int f = open(hunt_path, O_RDONLY);
+int find_treasure(char *treasure_path, int treasure_id){
+    int f = open(treasure_path, O_RDONLY);
     if( f == -1 ){
         perror("failed to open file");
         close(f);
@@ -153,13 +165,13 @@ int find_treasure(char *hunt_path, int treasure_id){
     return -1;
 }
 
-void remove_treasure(char* hunt_path, int treasure_id ){
-    int index = find_treasure(hunt_path,treasure_id);
+void remove_treasure(char* treasure_path, int treasure_id ){
+    int index = find_treasure(treasure_path,treasure_id);
 
     off_t src_offset = (index + 1) * sizeof(treasure);
     off_t dst_offset = index * sizeof(treasure);
 
-    int fd = open(hunt_path, O_RDWR);
+    int fd = open(treasure_path, O_RDWR);
     if( fd == -1){
         perror("file failed to open\n");
         close(fd);
@@ -200,11 +212,14 @@ void remove_treasure(char* hunt_path, int treasure_id ){
 
 void remove_hunt(char *hunt_path, char* treasure_path){
 
+    if( unlink(treasure_path) == -1){
+        perror("unlink failed\n");
+        exit(EXIT_FAILURE);
+    }
     if( rmdir(hunt_path) == -1){
         perror("rmdir failed\n");
         exit(EXIT_FAILURE);
     }
-    
 }
 /*  File Structure
 
@@ -222,6 +237,7 @@ Hunts/
 
 
 int main(int argc, char **argv){
+    int written = 0;
     struct stat st;
     if (stat("Hunts", &st) == -1) {
         //Daca directorul Hunts nu exista il creaza
@@ -245,12 +261,20 @@ int main(int argc, char **argv){
     }
 
     char cwd_N[1024];
-    snprintf(cwd_N, sizeof(cwd_N), "%s%s", cwd, "/Hunts/"); //Concatenam Hunts la cwd 
+    written = snprintf(cwd_N, sizeof(cwd_N), "%s%s", cwd, "/Hunts/"); //Concatenam Hunts la cwd 
+    if (written < 0 || written >= sizeof(cwd_N)) {
+        perror("Path too long\n");
+        exit(EXIT_FAILURE);
+    }   
     // printf("%s\n",cwd_N);
 
 	if( strcmp(argv[1], "--add") == 0){
         char dir_path[1024];
-		snprintf(dir_path, sizeof(dir_path), "%s%s", cwd_N, argv[2]); //Concatenam directorul dat ca argument la path
+		written = snprintf(dir_path, sizeof(dir_path), "%s%s", cwd_N, argv[2]); //Concatenam directorul dat ca argument la path
+        if (written < 0 || written >= sizeof(dir_path)) {
+            perror("Path too long\n");
+            exit(EXIT_FAILURE);
+        }
 
 		if( !stat(dir_path, &st) ){ //verificam daca exista hunt ul specificat in argument
 			if( S_ISDIR(st.st_mode) ){ //daca exista adaugam date despre treasure
@@ -277,16 +301,35 @@ int main(int argc, char **argv){
 	}
 
 	else if( strcmp(argv[1], "--remove_treasure") == 0){
-        char hunt_path[1024];
-        snprintf(hunt_path, sizeof(hunt_path), "%s/%s/treasure_%s.dat",cwd_N, argv[2], argv[2]);
+        char treasure_path[1024];
+        written = snprintf(treasure_path, sizeof(treasure_path), "%s/%s/treasure_%s.dat",cwd_N, argv[2], argv[2]);
+        if (written < 0 || written >= sizeof(treasure_path)) {
+            perror("Path too long\n");
+            exit(EXIT_FAILURE);
+        }
         int t_id = atoi(argv[3]);
 
-        remove_treasure(hunt_path, t_id);
+        remove_treasure(treasure_path, t_id);
 	}
 
 	else if( strcmp(argv[1], "--remove_hunt") == 0){
-		
+        char treasure_path[1024];
+        written = snprintf(treasure_path, sizeof(treasure_path), "%s/%s/treasure_%s.dat",cwd_N, argv[2], argv[2]);
+        if (written < 0 || written >= sizeof(treasure_path)) {
+            perror("Path too long\n");
+            exit(EXIT_FAILURE);
+        }
+
+        char hunt_path[1024];
+        written = snprintf(hunt_path, sizeof(hunt_path), "%s/%s",cwd_N, argv[2]);
+        if (written < 0 || written >= sizeof(hunt_path)) {
+            perror("Path too long\n");
+            exit(EXIT_FAILURE);
+        }
+		remove_hunt(hunt_path,treasure_path);
 	}
 	
 	return 0;
 }
+
+

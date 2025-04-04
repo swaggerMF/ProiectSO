@@ -105,6 +105,34 @@ void list(char* path, char* arg){
     }
     print_treasure(hunt_path);
 }
+
+void view(char *path, char *hunt_id, int treasure_id){
+    char hunt_path[1024];
+    snprintf(hunt_path, sizeof(hunt_path), "%s/%s/treasure_%s.dat", path,hunt_id,hunt_id);
+
+    int f = open(hunt_path, O_RDONLY);
+    if( f == -1 ){
+        perror("failed to open file\n");
+        close(f);
+        exit(EXIT_FAILURE);
+    }
+
+    treasure t;
+    int nr = 1;
+    while( read(f,&t,sizeof(treasure))){
+        nr++;
+        if( t.id == treasure_id ){
+            printf("Treasure no.%d\n", nr);
+            printf("ID: %d\n", t.id);
+            printf("Username: %s\n", t.username);
+            printf("GPS Longitude: %f\n", t.longi);
+            printf("GPS Latitude: %f\n", t.lat);
+            printf("Clue: %s\n", t.clue);
+            printf("Value: %d\n\n\n",t.value);
+        }
+    }
+}
+
 /*  Structura Fisierelor
 
 Hunts/
@@ -170,7 +198,8 @@ int main(int argc, char **argv){
 		list(cwd_N, argv[2]);
 	}
 	else if( strcmp(argv[1], "--view") == 0){
-		printf("list\n");
+        int t_id = atoi(argv[3]);
+		view(cwd_N, argv[2],t_id);
 	}
 	else if( strcmp(argv[1], "--remove_treasure") == 0){
 		printf("list\n");

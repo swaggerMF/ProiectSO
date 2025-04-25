@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 int main(void){
     char cmd[101];
@@ -8,9 +9,6 @@ int main(void){
     while(1){
         printf(">> ");
         fflush(stdout);
-
-
-
         
         if(fgets(cmd, sizeof(cmd), stdin) == NULL ){
             break;
@@ -19,7 +17,14 @@ int main(void){
         cmd[strcspn(cmd, "\n")] = 0;
 
         if(strcmp(cmd, "start_monitor") == 0){
-            printf("start monitor proc\n");
+            // printf("start monitor proc\n");
+
+            int pid = fork();
+
+            if(pid == 0 ){
+                exec()
+            }
+
         }
         else if(strcmp(cmd, "list_hunts") == 0){
             printf("list hunts\n");

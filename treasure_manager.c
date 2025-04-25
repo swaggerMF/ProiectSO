@@ -429,7 +429,6 @@ int main(int argc, char **argv){
             perror("Path too long\n");
             exit(EXIT_FAILURE);
         }
-
         char hunt_path[1024];
         written = snprintf(hunt_path, sizeof(hunt_path), "%s/%s",cwd_N, argv[2]);
         if (written < 0 || written >= sizeof(hunt_path)) {

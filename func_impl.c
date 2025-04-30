@@ -1,3 +1,4 @@
+#define _GNU_SOURCE 
 #include "header.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -8,8 +9,7 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <time.h>
-
-// Function implementations
+#include <dirent.h>
 
 treasure add_info() {
     treasure t;
@@ -116,7 +116,6 @@ void add_treasure(char *cwd,char *path, char *arg, char* log_path){
     close(f);
 }
 
-// Implement the rest of the functions here (print_treasure, list, find_treasure, etc.)
 void print_treasure(char* treasure_path){ //functie pentru afisarea detaliilor despre un treasure
     int f = open(treasure_path, O_RDONLY);
     if( f == -1 ){
@@ -305,5 +304,43 @@ void remove_hunt(char *cwd,char *hunt_path, char* treasure_path, char* log_path,
     if( rmdir(hunt_path) == -1){ // se sterge directorul pentru hunt
         perror("rmdir failed\n");
         exit(EXIT_FAILURE);
+    }
+}
+
+int getTreasureNo(char *hunt_path){
+    int f = open(hunt_path, O_RDONLY);
+    if( f == -1){
+        perror("error opening file\n");
+        exit(EXIT_FAILURE);
+    }
+
+    treasure t;
+    int ct = 0;
+    while( read(f,&t,sizeof(treasure))) ct++;
+    close(f);
+    return ct;
+}
+
+void list_hunts(char *hunts_path){
+    DIR *d;
+    struct dirent *dir;
+    if((d = opendir(hunts_path)) == NULL ){
+        perror("Error opening directory\n");
+        exit(EXIT_FAILURE);
+    }
+    // printf("%s", hunts_path);
+    if(d){
+        while((dir = readdir(d)) != NULL ){
+            if( dir->d_type == DT_DIR ){
+                printf("Hunt ul %s cu ", dir->d_name);
+                char h_path[1024];
+                int written = snprintf(h_path, sizeof(h_path), "%s/%s",hunts_path , dir->d_name); //path catre un hunt specific
+                if (written < 0 || written >= sizeof(h_path)) {
+                    perror("Path too long\n");
+                    exit(EXIT_FAILURE);
+                }
+                printf("%d treasure uri\n",getTreasureNo(h_path));
+            }
+        }
     }
 }

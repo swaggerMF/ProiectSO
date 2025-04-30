@@ -38,7 +38,7 @@ int main(int argc, char **argv){
     if (written < 0 || written >= sizeof(cwd_N)) {
         perror("Path too long\n");
         exit(EXIT_FAILURE);
-    }   
+    }  
     // printf("%s\n",cwd_N);
 
     char log_path[1024];
@@ -115,6 +115,12 @@ int main(int argc, char **argv){
         }
 		remove_hunt(cwd,hunt_path,treasure_path,log_path,argv[2]);
 	}
+    else if (strcmp(argv[1], "--list_hunts") == 0 ){
+        list_hunts(cwd_N);
+    }
+    else{
+        printf("Unknown command\n");
+    }
 	
 	return 0;
 }

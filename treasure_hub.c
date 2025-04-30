@@ -1,9 +1,39 @@
+#include "header.h"
+#include "func_impl.c"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
+int monitor_status = 0;
+int monitor_pid = -1;
+
+void monitor_proc(){
+    
+}
+
+void start_monitor(){
+    if( monitor_pid == -1 ){
+        printf("ERR:Monitor is already running\n");
+        return;
+    }
+
+    monitor_pid = fork();
+    if( monitor_pid == 0 ){
+        monitor_proc();
+        exit(0);
+    }
+    else if(monitor_pid > 0){
+        printf("Monitor started with PID: %d", monitor_pid);
+    }
+    else{
+        perror("Failed to start monitor");
+    }
+}
+
+
 int main(void){
+    
     char cmd[101];
 
     while(1){
@@ -22,7 +52,7 @@ int main(void){
             int pid = fork();
 
             if(pid == 0 ){
-                exec()
+                
             }
 
         }

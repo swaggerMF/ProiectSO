@@ -288,16 +288,16 @@ void remove_hunt(char *cwd,char *hunt_path, char* treasure_path, char* log_path,
         perror("Path too long\n");
         exit(EXIT_FAILURE);
     }
-    if (unlink(symlink_path) == -1) { // se sterge intai symlink ul
+    if (unlink(symlink_path) == -1 && errno != ENOENT) { // se sterge intai symlink ul
         perror("Failed to remove symbolic link");
         exit(EXIT_FAILURE);
     }
     
-    if( unlink(log_path) == -1){ // se sterge log ul
+    if( unlink(log_path) == -1 && errno != ENOENT){ // se sterge log ul
         perror("unlink failed\n");
         exit(EXIT_FAILURE);
     }
-    if( unlink(treasure_path) == -1){ // se sterg datele despre treasure uri
+    if( unlink(treasure_path) == -1  && errno != ENOENT){ // se sterg datele despre treasure uri
         perror("unlink failed\n");
         exit(EXIT_FAILURE);
     }
@@ -307,8 +307,8 @@ void remove_hunt(char *cwd,char *hunt_path, char* treasure_path, char* log_path,
     }
 }
 
-int getTreasureNo(char *hunt_path){
-    int f = open(hunt_path, O_RDONLY);
+int getTreasureNo(char *file_path){
+    int f = open(file_path, O_RDONLY);
     if( f == -1){
         perror("error opening file\n");
         exit(EXIT_FAILURE);
@@ -321,26 +321,38 @@ int getTreasureNo(char *hunt_path){
     return ct;
 }
 
-void list_hunts(char *hunts_path){
+void list_hunts(char *hunts_dir_path){
     DIR *d;
     struct dirent *dir;
-    if((d = opendir(hunts_path)) == NULL ){
+    if((d = opendir(hunts_dir_path)) == NULL ){
         perror("Error opening directory\n");
         exit(EXIT_FAILURE);
     }
-    // printf("%s", hunts_path);
-    if(d){
-        while((dir = readdir(d)) != NULL ){
-            if( dir->d_type == DT_DIR ){
-                printf("Hunt ul %s cu ", dir->d_name);
-                char h_path[1024];
-                int written = snprintf(h_path, sizeof(h_path), "%s/%s",hunts_path , dir->d_name); //path catre un hunt specific
-                if (written < 0 || written >= sizeof(h_path)) {
-                    perror("Path too long\n");
-                    exit(EXIT_FAILURE);
-                }
-                printf("%d treasure uri\n",getTreasureNo(h_path));
-            }
+    while((dir = readdir(d)) != NULL ){
+        if (strcmp(dir->d_name, ".") == 0 || strcmp(dir->d_name, "..") == 0)
+            continue;
+
+        struct stat st;
+        char hunt_path[1024];
+        int written = snprintf(hunt_path, sizeof(hunt_path), "%s%s",hunts_dir_path , dir->d_name); //path catre un hunt specific
+        if (written < 0 || written >= sizeof(hunt_path)) {
+            perror("Path too long\n");
+            exit(EXIT_FAILURE);
         }
+        if(stat(hunt_path,&st) == -1){
+            perror("stat failed\n");
+            exit(EXIT_FAILURE);
+        }
+        if(S_ISDIR(st.st_mode)){
+            printf("%s: ", dir->d_name);
+            char treasure_path[1024];
+            written = snprintf(treasure_path, sizeof(treasure_path), "%s/treasure_%s.dat", hunt_path,dir->d_name); //path catre un lista cu treasureuri
+            if (written < 0 || written >= sizeof(hunt_path)) {
+                perror("Path too long\n");
+                exit(EXIT_FAILURE);
+            }
+            printf("%d treasure uri\n",getTreasureNo(treasure_path));
+        }   
     }
-}
+    closedir(d);
+} 

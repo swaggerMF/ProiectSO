@@ -100,6 +100,9 @@ int main(void){
         else if(strcmp(cmd, "clear") == 0){
             system("clear");
         }
+        else if(strcmp(cmd, "calculate_score") == 0){
+            
+        }
         else{
             printf("Unknown command\n");
         }

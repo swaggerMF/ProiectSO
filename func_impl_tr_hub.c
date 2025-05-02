@@ -114,6 +114,9 @@ void handle_sigusr1(int sig){
         perror("fork failed");
         exit(EXIT_FAILURE);
     }
+    for (int i = 0; v_arg[i] != NULL; i++) {
+        free(v_arg[i]);
+    }
 
 }
 

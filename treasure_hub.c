@@ -27,6 +27,30 @@ void send_sig(){
         kill(monitor_pid,SIGUSR1);
 }
 
+void stop_monitor() {
+    if (monitor_running == 0) {
+        printf("ERR: Monitor is not running\n");
+        return;
+    }
+    monitor_stopping = 1;
+    
+
+    int status;
+    waitpid(monitor_pid,&status, 0);
+
+    if (WIFEXITED(status)) {
+        printf("Monitor exited with status %d\n", WEXITSTATUS(status));
+    } else if (WIFSIGNALED(status)) {
+        printf("Monitor terminated by signal %d\n", WTERMSIG(status));
+    } else {
+        printf("Monitor exited abnormally\n");
+    }
+
+    monitor_running = 0;
+    monitor_pid = -1;
+    monitor_stopping = 0;   
+}
+
 void handle_sigusr1(int sig){
     FILE *f = fopen("cmds.txt", "r");
     if(!f){
@@ -41,9 +65,14 @@ void handle_sigusr1(int sig){
         perror("malloc failed");
         exit(EXIT_FAILURE);
     }
+
+    int stop_flag = 0;
     strcpy(v_arg[i++], "treasure_manager");
     while(fgets(args,sizeof(args),f) != NULL){
         args[strcspn(args, "\n")] = 0;
+        if( strcmp(args,"stop_monitor") == 0 ){
+            stop_flag = 1;
+        }
         v_arg[i] = malloc(strlen(args) + 1);
         if( v_arg[i] == NULL ){
             perror("malloc failed");
@@ -55,14 +84,19 @@ void handle_sigusr1(int sig){
         strcpy(v_arg[i++], args);
     }   
     v_arg[i] = NULL;
-    if(strcmp(args,"stop_monitor") == 0){
-        printf("Stopping monitor\n");
-        fflush(stdout);
-        usleep(10000000);
-        exit(0);
-    }
 
     fclose(f);
+
+    if(stop_flag != 0 ){
+        printf("Monitor: Shutting down in 5 seconds...\n");
+        fflush(stdout);
+        usleep(5000000); // Sleep 5 seconds
+        // char cmd[30];
+        // while(fgets(cmd,sizeof(cmd),stdin) == 1){
+        //     printf("Command <%s> couldn't be processed while monitor is shutting down\n",cmd);
+        // }
+        exit(0);    
+    }
 
     int pid = vfork();
     if(pid == 0 ){
@@ -99,20 +133,8 @@ void monitor_proc(){
 
     sigaction(SIGUSR1, &sa_sigusr1, NULL); //sigaction in sine, ii spuen procesului ce sa faca daca primeste semnalul SIGUSR1 prin variabila sa_sigusr1 si campurile ei
 
-    
-    sigemptyset(&blocked_signals); 
-    sigaddset(&blocked_signals, SIGUSR1); //blocam SIGUSR1 pt a nu interfera cu procesul de setup
-    sigprocmask(SIG_BLOCK, &blocked_signals, NULL);
-    
-    sigemptyset(&wait); //deblocam sigusr1 
-    sigaddset(&wait, SIGUSR1);
-
-    sigprocmask(SIG_UNBLOCK, &wait, NULL);
-
-
     while(1){
-        sigsuspend(&wait);
-        // pause();
+        pause();
     }
 }
 
@@ -135,35 +157,6 @@ void start_monitor(){
     }
 }
 
-void stop_monitor() {
-    if (monitor_running == 0) {
-        printf("ERR: Monitor is not running\n");
-        return;
-    }
-
-    monitor_stopping=1;
-
-    write_arg("stop_monitor");
-    send_sig();
-
-    int status;
-    waitpid(monitor_pid, &status, 0);
-
-    if (WIFEXITED(status)) {
-        printf("Monitor exited with status %d\n", WEXITSTATUS(status));
-    } else if (WIFSIGNALED(status)) {
-        printf("Monitor terminated by signal %d\n", WTERMSIG(status));
-    } else {
-        printf("Monitor exited abnormally\n");
-    }
-
-    monitor_running = 0;
-    monitor_pid = -1;
-    monitor_stopping = 0;
-}
-
-
-
 
 int main(void){
     char cmd[101];
@@ -178,20 +171,11 @@ int main(void){
         }
 
         cmd[strcspn(cmd, "\n")] = 0;
-
         if(strcmp(cmd, "start_monitor") == 0){
-            if( monitor_stopping){
-                printf("ERR: Monitor is stopping. No user inputs are allowed\n");
-                continue;
-            }
             // printf("start monitor proc\n");
             start_monitor();
         }
         else if(strcmp(cmd, "list_hunts") == 0){
-            if( monitor_stopping){
-                printf("ERR: Monitor is stopping. No user inputs are allowed\n");
-                continue;
-            }
             if( monitor_running == 0){
                 printf("Monitor not running. Please use start_monitor first\n");
                 continue;
@@ -205,10 +189,6 @@ int main(void){
             // printf("list hunts\n");
         }
         else if(strcmp(cmd,"list_treasures") == 0){
-            if( monitor_stopping){
-                printf("ERR: Monitor is stopping. No user inputs are allowed\n");
-                continue;
-            }
             if( monitor_running == 0){
                 printf("Monitor not running. Please use start_monitor first\n");
                 continue;
@@ -218,19 +198,16 @@ int main(void){
                 exit(EXIT_FAILURE);
             }
             write_arg("--list");
-            printf("Please enter the hunt you would like to be displayed?\n");
+            printf("Please enter the hunt you would like to be displayed: ");
             char hunt[20];
             // fgets(stdin,sizeof(hunt), hunt);
             scanf("%19s",hunt);
             getchar();
+            printf("\n");
             write_arg(hunt);
             send_sig();
         }
         else if(strcmp(cmd, "view_treasure") == 0){
-            if( monitor_stopping){
-                printf("ERR: Monitor is stopping. No user inputs are allowed\n");
-                continue;
-            }
             if( monitor_running == 0){
                 printf("Monitor not running. Please use start_monitor first\n");
                 continue;
@@ -255,24 +232,16 @@ int main(void){
             
         }
         else if(strcmp(cmd, "stop_monitor") == 0){
-            if( monitor_stopping){
-                printf("ERR: Monitor is stopping. No user inputs are allowed\n");
-                continue;
-            }
             if( unlink("cmds.txt") == -1 && errno != ENOENT ){
                 perror("file delete failed");
                  exit(EXIT_FAILURE);
             }
-            // write_arg("stop_monitor");
-            // send_sig();
+            write_arg("stop_monitor");
+            send_sig();
             stop_monitor();
             // printf("stopmnt\n");
         }
         else if(strcmp(cmd, "exit") == 0){
-            if( monitor_stopping){
-                printf("ERR: Monitor is stopping. No user inputs are allowed\n");
-                continue;
-            }
             // printf("se exituie\n");
             if(monitor_running == 1){
                 printf("ERR: Monitor still running\n");

@@ -32,8 +32,16 @@ void stop_monitor() {
         printf("ERR: Monitor is not running\n");
         return;
     }
+    usleep(500000);
+    kill(monitor_pid, SIGTERM);
     monitor_stopping = 1;
     
+    while( monitor_pid != -1 ){
+        char cmd[31];
+        if(scanf("%s", cmd) == 1){
+            printf("Command <%s> couldn't be processed while monitor is stopping\n", cmd);
+        }
+    }
 
     int status;
     waitpid(monitor_pid,&status, 0);
@@ -45,11 +53,8 @@ void stop_monitor() {
     } else {
         printf("Monitor exited abnormally\n");
     }
-
-    monitor_running = 0;
-    monitor_pid = -1;
-    monitor_stopping = 0;   
 }
+
 
 void handle_sigusr1(int sig){
     FILE *f = fopen("cmds.txt", "r");
@@ -66,13 +71,9 @@ void handle_sigusr1(int sig){
         exit(EXIT_FAILURE);
     }
 
-    int stop_flag = 0;
     strcpy(v_arg[i++], "treasure_manager");
     while(fgets(args,sizeof(args),f) != NULL){
         args[strcspn(args, "\n")] = 0;
-        if( strcmp(args,"stop_monitor") == 0 ){
-            stop_flag = 1;
-        }
         v_arg[i] = malloc(strlen(args) + 1);
         if( v_arg[i] == NULL ){
             perror("malloc failed");
@@ -86,17 +87,7 @@ void handle_sigusr1(int sig){
     v_arg[i] = NULL;
 
     fclose(f);
-
-    if(stop_flag != 0 ){
-        printf("Monitor: Shutting down in 5 seconds...\n");
-        fflush(stdout);
-        usleep(5000000); // Sleep 5 seconds
-        // char cmd[30];
-        // while(fgets(cmd,sizeof(cmd),stdin) == 1){
-        //     printf("Command <%s> couldn't be processed while monitor is shutting down\n",cmd);
-        // }
-        exit(0);    
-    }
+    exit(0);    
 
     int pid = vfork();
     if(pid == 0 ){
@@ -125,8 +116,6 @@ void handle_sigusr1(int sig){
 
 void monitor_proc(){
     struct sigaction sa_sigusr1;
-    sigset_t blocked_signals, wait;
-
     sa_sigusr1.sa_handler = handle_sigusr1; //seteaza campul din structul sigaction cu un handler
     sigemptyset(&sa_sigusr1.sa_mask); //seteaza masca pe 0 pt a nu bloca semnale neintentionat
     sa_sigusr1.sa_flags = 0; 
@@ -158,8 +147,31 @@ void start_monitor(){
 }
 
 
+void handle_sigchld(int sig)
+{
+    if(monitor_stopping)
+    {
+        monitor_pid=-1;
+        printf("Monitor stopped\n");
+
+        monitor_stopping=0;
+    }
+}
+
+
 int main(void){
     char cmd[101];
+
+    struct sigaction sigchld;
+    sigchld.sa_handler=handle_sigchld;
+    sigchld.sa_flags=0;
+    sigemptyset(&sigchld.sa_mask);
+
+    if((sigaction(SIGCHLD, &sigchld, NULL))==-1)
+    {
+        perror("Error sigaction");
+        exit(-1);   
+    }
 
     while(1){
         usleep(10000);
@@ -172,7 +184,6 @@ int main(void){
 
         cmd[strcspn(cmd, "\n")] = 0;
         if(strcmp(cmd, "start_monitor") == 0){
-            // printf("start monitor proc\n");
             start_monitor();
         }
         else if(strcmp(cmd, "list_hunts") == 0){
@@ -236,9 +247,15 @@ int main(void){
                 perror("file delete failed");
                  exit(EXIT_FAILURE);
             }
-            write_arg("stop_monitor");
-            send_sig();
+            // monitor_stopping = 1;
+            // write_arg("stop_monitor");
+            // send_sig();
             stop_monitor();
+            monitor_running = 0;
+            // char cmd[31];
+            // while(fgets(cmd, sizeof(cmd), stdin) != EOF){
+            //     printf("Command <%s> couldn't be processed during monitor shutdown\n",cmd);
+            // }
             // printf("stopmnt\n");
         }
         else if(strcmp(cmd, "exit") == 0){

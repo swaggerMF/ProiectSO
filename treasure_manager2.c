@@ -1,5 +1,5 @@
-#include "header.h"
-#include "func_impl.c"
+#include "tr_manager_hdr.h"
+#include "func_impl_tr_manager.c"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -10,6 +10,10 @@
 #include <errno.h>
 
 int main(int argc, char **argv){
+    if( argc < 2 ){
+        printf("Usage: ./treasure_manager arg1 arg2...(--add / --list / --view / --remove_treasure / --remove_hunt)\n");
+        exit(EXIT_FAILURE);
+    }
     int written = 0;
     struct stat st;
     if (stat("Hunts", &st) == -1) {
@@ -49,6 +53,10 @@ int main(int argc, char **argv){
     }
 
 	if( strcmp(argv[1], "--add") == 0){ // se verifica primul argument pt a sti ce fel de actiune trebuie sa facem
+        if( argv[2] == NULL ){
+            printf("Usage: ./treasure_manager hunt_name\n");
+            exit(EXIT_FAILURE);
+        }
         char dir_path[1024];
 		written = snprintf(dir_path, sizeof(dir_path), "%s%s", cwd_N, argv[2]); //Concatenam current working directory si hunt id pt a obtiine dir path
         if (written < 0 || written >= sizeof(dir_path)) {
@@ -73,15 +81,27 @@ int main(int argc, char **argv){
 
     
 	else if( strcmp(argv[1], "--list") == 0){
+        if( argv[2] == NULL ){
+            printf("Usage: ./treasure_manager hunt_name\n");
+            exit(EXIT_FAILURE);
+        }
 		list(cwd_N, argv[2],log_path);
 	}
 
 	else if( strcmp(argv[1], "--view") == 0){
+        if( argv[2] == NULL || argv[3] == NULL){
+            printf("Usage: --view hunt_name treasure_id\n");
+            exit(EXIT_FAILURE);
+        }
         int t_id = atoi(argv[3]);
 		view(cwd_N, argv[2],t_id,log_path);
 	}
 
 	else if( strcmp(argv[1], "--remove_treasure") == 0){
+        if( argv[2] == NULL || argv[3] == NULL){
+            printf("Usage: ./treasure_manager --remove_treasure Hunt_name treasure_id\n");
+            exit(EXIT_FAILURE);
+        }
         char treasure_path[1024];
         written = snprintf(treasure_path, sizeof(treasure_path), "%s/%s/treasure_%s.dat",cwd_N, argv[2], argv[2]);
         if (written < 0 || written >= sizeof(treasure_path)) {
@@ -94,6 +114,10 @@ int main(int argc, char **argv){
 	}
 
 	else if( strcmp(argv[1], "--remove_hunt") == 0){
+        if( argv[2] == NULL ){
+            printf("Usage: ./treasure_manager hunt_name\n");
+            exit(EXIT_FAILURE);
+        }
         char treasure_path[1024];
         written = snprintf(treasure_path, sizeof(treasure_path), "%s/%s/treasure_%s.dat",cwd_N, argv[2], argv[2]);
         if (written < 0 || written >= sizeof(treasure_path)) {

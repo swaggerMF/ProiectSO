@@ -1,5 +1,4 @@
-#define _GNU_SOURCE 
-#include "header.h"
+#include "tr_manager_hdr.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

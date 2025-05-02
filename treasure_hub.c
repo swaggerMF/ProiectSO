@@ -32,7 +32,7 @@ void stop_monitor() {
         printf("ERR: Monitor is not running\n");
         return;
     }
-    usleep(500000);
+    usleep(5000000);
     kill(monitor_pid, SIGTERM);
     monitor_stopping = 1;
     
@@ -86,19 +86,20 @@ void handle_sigusr1(int sig){
     }   
     v_arg[i] = NULL;
 
-    fclose(f);
-    exit(0);    
+    fclose(f); 
 
     int pid = vfork();
     if(pid == 0 ){
         char cwd[1024];
         getcwd(cwd,sizeof(cwd));
+
         char exec_path[1024];
         int written = snprintf(exec_path, sizeof(exec_path), "%s/treasure_manager",cwd);
         if (written < 0 || written >= sizeof(exec_path)) {
             perror("Path too long\n");
             exit(EXIT_FAILURE);
         }
+
         execvp(exec_path,v_arg);
         perror("exec failed");
         exit(EXIT_FAILURE);
@@ -247,19 +248,10 @@ int main(void){
                 perror("file delete failed");
                  exit(EXIT_FAILURE);
             }
-            // monitor_stopping = 1;
-            // write_arg("stop_monitor");
-            // send_sig();
             stop_monitor();
             monitor_running = 0;
-            // char cmd[31];
-            // while(fgets(cmd, sizeof(cmd), stdin) != EOF){
-            //     printf("Command <%s> couldn't be processed during monitor shutdown\n",cmd);
-            // }
-            // printf("stopmnt\n");
         }
         else if(strcmp(cmd, "exit") == 0){
-            // printf("se exituie\n");
             if(monitor_running == 1){
                 printf("ERR: Monitor still running\n");
                 fflush(stdout);

@@ -1,0 +1,8 @@
+hunt1: 6 treasure uri
+
+hunt4: 1 treasure uri
+
+hunt3: 1 treasure uri
+
+hunt2: 2 treasure uri
+

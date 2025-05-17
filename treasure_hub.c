@@ -2,18 +2,6 @@
 
 int main(void){
     char cmd[101];
-
-    struct sigaction sigchld;
-    sigchld.sa_handler=handle_sigchld;
-    sigchld.sa_flags=0;
-    sigemptyset(&sigchld.sa_mask);
-
-    if((sigaction(SIGCHLD, &sigchld, NULL))==-1)
-    {
-        perror("Error sigaction");
-        exit(-1);   
-    }
-
     while(1){
         usleep(10000);
         printf(">> ");
@@ -101,7 +89,8 @@ int main(void){
             system("clear");
         }
         else if(strcmp(cmd, "calculate_score") == 0){
-            
+            write_arg("calc");
+            send_sig();
         }
         else{
             printf("Unknown command\n");

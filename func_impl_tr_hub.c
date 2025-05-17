@@ -94,7 +94,10 @@ void handle_sigusr1(int sig){
     }
     int calc_score = 0;
     char args[31];
-    char *v_arg[5];
+    char *v_arg[6];
+    for (int idx = 0; idx < 6; idx++) {
+    v_arg[idx] = NULL;
+}
     int i = 0;
     v_arg[i] = malloc(strlen("treasure_manager") + 1);
     if( v_arg[i] == NULL ){
@@ -104,33 +107,33 @@ void handle_sigusr1(int sig){
 
     strcpy(v_arg[i++], "treasure_manager");
     while(fgets(args,sizeof(args),f) != NULL){
+        args[strcspn(args, "\n")] = 0;
         if(strcmp(args,"calc") == 0){
             calc_score =1;
-            break;
         }
-        args[strcspn(args, "\n")] = 0;
-        v_arg[i] = malloc(strlen(args) + 1);
-        if( v_arg[i] == NULL ){
-            perror("malloc failed");
-            for( int j = i - 1; j >=0 ; j--){
-                free(v_arg[j]);
+        else{
+            v_arg[i] = malloc(strlen(args) + 1);
+            if( v_arg[i] == NULL ){
+                perror("malloc failed");
+                for( int j = i - 1; j >=0 ; j--){
+                    free(v_arg[j]);
+                }
+                exit(EXIT_FAILURE);
             }
-            exit(EXIT_FAILURE);
+            strcpy(v_arg[i++], args);
         }
-        strcpy(v_arg[i++], args);
     }   
     v_arg[i] = NULL;
-
     fclose(f); 
 
-    int pfd[2];
-    if(pipe(pfd) < 0 ){
-        perror("Pipe creation failed\n");
-        exit(EXIT_FAILURE);
-    }
+    
 
     if(!calc_score){
-
+        int pfd[2];
+        if(pipe(pfd) < 0 ){
+            perror("Pipe creation failed\n");
+            exit(EXIT_FAILURE);
+        }
         int pid = fork();
         if(pid == 0 ){
 
@@ -163,15 +166,6 @@ void handle_sigusr1(int sig){
                 exit(EXIT_FAILURE);
             }
             char string[1024];
-            // if(unlink("out.txt") == -1 && errno != ENOENT){
-            //     perror("Failed to delete file");
-            //     exit(EXIT_FAILURE);
-            // }
-            // FILE *out = fopen("out.txt", "a");
-            // if(out == NULL ){
-            //     perror("Error when opening file\n");
-            //     exit(EXIT_FAILURE);
-            // }
             printf("Output din proces parinte cu pipe:\n");
             while( fgets(string,sizeof(string), stream) != NULL){
                 printf("%s", string);
@@ -190,36 +184,86 @@ void handle_sigusr1(int sig){
         }
     }
     else{
-        int pid = fork();
-        if(pid == 0 ){
+        char exec_path[1024];
+        int written = snprintf(exec_path, sizeof(exec_path), "%s/calc_score",v_arg[1]);
+        if (written < 0 || written >= sizeof(exec_path)) {
+            perror("Path too long\n");
+            exit(EXIT_FAILURE);
+        }
+        strcpy(v_arg[0], "calc_score");
+        DIR *d;
+        struct dirent *dir;
+        if((d = opendir(v_arg[2])) == NULL ){
+            perror("Error opening directory\n");
+            exit(EXIT_FAILURE);
+        }
+        
+        while((dir = readdir(d)) != NULL ){
+            if (strcmp(dir->d_name, ".") == 0 || strcmp(dir->d_name, "..") == 0)
+                continue;
 
-            close(pfd[0]);
-            if(dup2(pfd[1], 1) < 0){
-                perror("dup2 error\n");
-                exit(EXIT_FAILURE);
-            }
-
-            char cwd[1024];
-            getcwd(cwd,sizeof(cwd));
-
-            char exec_path[1024];
-            int written = snprintf(exec_path, sizeof(exec_path), "%s/calc_score",cwd);
-            if (written < 0 || written >= sizeof(exec_path)) {
+            struct stat st;
+            char hunt_path[1024];
+            int written = snprintf(hunt_path, sizeof(hunt_path), "%s%s",v_arg[2] , dir->d_name); //path catre un hunt specific
+            if (written < 0 || written >= sizeof(hunt_path)) {
                 perror("Path too long\n");
                 exit(EXIT_FAILURE);
             }
-            execvp(exec_path,v_arg);
-            perror("exec failed");
-            exit(EXIT_FAILURE);
+            if(stat(hunt_path,&st) == -1){
+                perror("stat failed\n");
+                exit(EXIT_FAILURE);
+            }
+            if(S_ISDIR(st.st_mode)){
+                 int pfd[2];
+                if(pipe(pfd) < 0 ){
+                    perror("Pipe creation failed\n");
+                    exit(EXIT_FAILURE);
+                }
+                int pid = fork();
+                if( pid == 0 ){
+                    close(pfd[0]);
+                    if(dup2(pfd[1], 1) < 0){
+                        perror("dup2 error\n");
+                        exit(EXIT_FAILURE);
+                    }
+                    printf("%s: \n", dir->d_name);
+                    char treasure_path[1024];
+                    written = snprintf(treasure_path, sizeof(treasure_path), "%s/treasure_%s.dat", hunt_path,dir->d_name); //path catre un lista cu treasureuri
+                    if (written < 0 || written >= sizeof(hunt_path)) {
+                        perror("Path too long\n");
+                        exit(EXIT_FAILURE);
+                    }
+                    v_arg[3] = malloc(strlen(treasure_path) + 1);
+                    if (!v_arg[3]) {
+                        perror("malloc failed");
+                        exit(EXIT_FAILURE);
+                    }
+                    strcpy(v_arg[3],treasure_path);
+                    execvp(exec_path, v_arg);
+                    perror("eroare la exec");
+                    exit(EXIT_FAILURE);
+                }
+                else if(pid > 0){
+                    FILE *stream;
+                    stream = fdopen(pfd[0], "r");
+                    close(pfd[1]);
+                    if( stream == NULL ){
+                        perror("fdopen error\n");
+                        exit(EXIT_FAILURE);
+                    }
+                    char string[1024];
+                    printf("\n\nOutput din proces parinte cu pipe pt calc:\n");
+                    while( fgets(string,sizeof(string), stream) != NULL){
+                        printf("%s", string);
+                    }
+                    close(pfd[0]);
+                    int status;
+                    waitpid(pid,&status, 0);
+                }
+            } 
         }
-        else if(pid> 0){
-            
-        }
-        else{
-
-        }
-    }
-
+        closedir(d);
+    } 
 }
 
 void monitor_proc(){

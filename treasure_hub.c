@@ -89,7 +89,21 @@ int main(void){
             system("clear");
         }
         else if(strcmp(cmd, "calculate_score") == 0){
+            if( unlink("cmds.txt") == -1 && errno != ENOENT ){
+                perror("file delete failed");
+                exit(EXIT_FAILURE);
+            }
+            char cwd[1024];
+            getcwd(cwd,sizeof(cwd));
+            char cwd_N[1024];
+            int written = snprintf(cwd_N, sizeof(cwd_N), "%s%s", cwd, "/Hunts/"); //Concatenam Hunts la cwd si vom avea cwd_N
+            if (written < 0 || written >= sizeof(cwd_N)) {
+                perror("Path too long\n");
+                exit(EXIT_FAILURE);
+            }
             write_arg("calc");
+            write_arg(cwd);
+            write_arg(cwd_N);
             send_sig();
         }
         else{
